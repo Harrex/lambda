@@ -22,6 +22,10 @@ pub enum LambdaNode {
     LParen,
     RParen,
     App,
+    True,
+    False,
+    And,
+    Or,
 }
 
 pub fn lex(string_to_parse: String) -> Vec<LambdaNode> {
@@ -35,6 +39,10 @@ pub fn lex(string_to_parse: String) -> Vec<LambdaNode> {
             ' ' => to_return.push(LambdaNode::App),
             '(' => to_return.push(LambdaNode::LParen),
             ')' => to_return.push(LambdaNode::RParen),
+            'T' => to_return.push(LambdaNode::True),
+            'F' => to_return.push(LambdaNode::False),
+            '&' => to_return.push(LambdaNode::And),
+            '|' => to_return.push(LambdaNode::Or),
             _ => eprintln!("Unrecognized character '{character}'"),
         }
     }
@@ -43,7 +51,7 @@ pub fn lex(string_to_parse: String) -> Vec<LambdaNode> {
 }
 
 struct NodeCounter<T> {
-node_list: Vec<T>,
+    node_list: Vec<T>,
     index: usize,
 }
 
@@ -109,7 +117,24 @@ fn parse_body_helper(node_counter: &mut NodeCounter<LambdaNode>) -> Vec<NotQuite
             LambdaNode::App => {
                 to_be_half_finished_return.insert(0, NotQuiteLambdaToken::App);
             }
-        }
+
+            LambdaNode::True => {
+                let mut node_counter = NodeCounter::new(lex(String::from("/p.(/q.(p))")));
+                to_be_half_finished_return.push(parse_body_helper(&mut node_counter)[0].clone());
+            }
+            LambdaNode::False => {
+                let mut node_counter = NodeCounter::new(lex(String::from("/p.(/q.(q))")));
+                to_be_half_finished_return.push(parse_body_helper(&mut node_counter)[0].clone());
+            },
+            LambdaNode::And   => {
+                let mut node_counter = NodeCounter::new(lex(String::from("/p.(/q.(q p q))")));
+                to_be_half_finished_return.push(parse_body_helper(&mut node_counter)[0].clone());
+            },
+            LambdaNode::Or    => {
+                let mut node_counter = NodeCounter::new(lex(String::from("/p.(/q.(p p q))")));
+                to_be_half_finished_return.push(parse_body_helper(&mut node_counter)[0].clone());
+            },
+        }                        
         first_round = false;
     }
 
@@ -176,17 +201,19 @@ pub fn beta_reduce(calc: Box<LambdaToken>) -> Box<LambdaToken> {
     dbg!(&calc);
     match *(calc.clone()) {
         LambdaToken::App(a, b) => match *(a.clone()) {
-            LambdaToken::App(_, _) => {
-                beta_reduce(Box::new(LambdaToken::App(beta_reduce(a), b)))
-            },
-            LambdaToken::Lambda(head, body) => substitute(body, head, &b),
+            LambdaToken::App(_, _) => beta_reduce(Box::new(LambdaToken::App(beta_reduce(a), b))),
+            LambdaToken::Lambda(head, body) => beta_reduce(substitute(body, head, &b)),
             LambdaToken::Var(_) => calc,
         },
         _ => calc,
     }
 }
 
-fn substitute(thing_to_substitute: Box<LambdaToken>, from: char, to: &Box<LambdaToken>) -> Box<LambdaToken> {
+fn substitute(
+    thing_to_substitute: Box<LambdaToken>,
+    from: char,
+    to: &Box<LambdaToken>,
+) -> Box<LambdaToken> {
     match *(thing_to_substitute.clone()) {
         LambdaToken::Var(v) => {
             if v == from {
@@ -198,11 +225,14 @@ fn substitute(thing_to_substitute: Box<LambdaToken>, from: char, to: &Box<Lambda
         LambdaToken::Lambda(head, body) => {
             if head == from {
                 thing_to_substitute // If head == from, then the variable has been shadowed in
-                  // this function, and we should leave it alone.
+                                    // this function, and we should leave it alone.
             } else {
                 Box::new(LambdaToken::Lambda(head, substitute(body, from, to)))
             }
         }
-        LambdaToken::App(a, b) => Box::new(LambdaToken::App(substitute(a, from, to), substitute(b, from, to)))
+        LambdaToken::App(a, b) => Box::new(LambdaToken::App(
+            substitute(a, from, to),
+            substitute(b, from, to),
+        )),
     }
 }
