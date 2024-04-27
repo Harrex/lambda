@@ -188,7 +188,6 @@ pub fn parse_lexed_to_ast(lexed_string_to_parse: Vec<LambdaNode>) -> Box<LambdaT
     let all_the_way: Box<LambdaToken>;
     let mut node_counter = NodeCounter::new(lexed_string_to_parse);
     halfway = parse_body_helper(&mut node_counter);
-    dbg!(&halfway);
     all_the_way = finish_the_job(halfway);
     all_the_way
 }
@@ -198,7 +197,6 @@ pub fn parse_lexed_to_ast(lexed_string_to_parse: Vec<LambdaNode>) -> Box<LambdaT
 // Beta Reduction time!!!
 
 pub fn beta_reduce(calc: Box<LambdaToken>) -> Box<LambdaToken> {
-    dbg!(&calc);
     match *(calc.clone()) {
         LambdaToken::App(a, b) => match *(a.clone()) {
             LambdaToken::App(_, _) => beta_reduce(Box::new(LambdaToken::App(beta_reduce(a), b))),
