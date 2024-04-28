@@ -86,14 +86,14 @@ fn parse_body_helper(
     node_counter: &mut NodeCounter<LambdaNode>,
     is_lambda: bool,
 ) -> Vec<NotQuiteLambdaToken> {
-    let mut to_be_half_finished_return: Vec<NotQuiteLambdaToken> = Vec::new();
+    let mut to_return: Vec<NotQuiteLambdaToken> = Vec::new();
     let mut waiting_for_brackets: bool = false;
 
     while node_counter.has_next() {
         let n = node_counter.next();
         match n {
             LambdaNode::Lambda => {
-                to_be_half_finished_return.push(NotQuiteLambdaToken::Lambda(
+                to_return.push(NotQuiteLambdaToken::Lambda(
                     match node_counter.next() {
                         LambdaNode::Var(a) => *a,
                         _ => panic!("Must have var after this"),
@@ -108,13 +108,13 @@ fn parse_body_helper(
 
             LambdaNode::Dot => panic!("Too many dots!"),
 
-            LambdaNode::Var(v) => to_be_half_finished_return.push(NotQuiteLambdaToken::Var(*v)),
+            LambdaNode::Var(v) => to_return.push(NotQuiteLambdaToken::Var(*v)),
 
             LambdaNode::LParen => {
                 if is_lambda {
                     waiting_for_brackets = true;
                 } else {
-                    to_be_half_finished_return.push(NotQuiteLambdaToken::Brackets(
+                    to_return.push(NotQuiteLambdaToken::Brackets(
                         parse_body_helper(node_counter, false),
                     ))
                 }
@@ -123,44 +123,44 @@ fn parse_body_helper(
             LambdaNode::RParen => {
                 if is_lambda {
                     if waiting_for_brackets {
-                        return to_be_half_finished_return;
+                        return to_return;
                     } else {
                         node_counter.step_back();
-                        return to_be_half_finished_return;
+                        return to_return;
                     }
                 } else {
-                    return to_be_half_finished_return;
+                    return to_return;
                 }
             }
 
             LambdaNode::App => {
-                to_be_half_finished_return.insert(0, NotQuiteLambdaToken::App);
+                to_return.insert(0, NotQuiteLambdaToken::App);
             }
 
             LambdaNode::True => {
                 let mut node_counter = NodeCounter::new(lex(String::from("/p.(/q.(p))")));
-                to_be_half_finished_return
+                to_return
                     .push(parse_body_helper(&mut node_counter, false)[0].clone());
             }
             LambdaNode::False => {
                 let mut node_counter = NodeCounter::new(lex(String::from("/p.(/q.(q))")));
-                to_be_half_finished_return
+                to_return
                     .push(parse_body_helper(&mut node_counter, false)[0].clone());
             }
             LambdaNode::And => {
                 let mut node_counter = NodeCounter::new(lex(String::from("/p.(/q.(q p q))")));
-                to_be_half_finished_return
+                to_return
                     .push(parse_body_helper(&mut node_counter, false)[0].clone());
             }
             LambdaNode::Or => {
                 let mut node_counter = NodeCounter::new(lex(String::from("/p.(/q.(p p q))")));
-                to_be_half_finished_return
+                to_return
                     .push(parse_body_helper(&mut node_counter, false)[0].clone());
             }
         }
     }
 
-    to_be_half_finished_return
+    to_return
 }
 
 fn not_quite_to_lambda_token(not_quite: NotQuiteLambdaToken) -> Box<LambdaToken> {
@@ -267,5 +267,20 @@ fn substitute(
             substitute(b, from, to),
         )),
         LambdaToken::Brackets(_) => todo!(),
+    }
+}
+
+// Pretty Text Rendering
+
+pub fn display_as_text(calc: Box<LambdaToken>) -> String {
+    match *calc {
+        LambdaToken::Var(v) => String::from(v),
+        LambdaToken::Lambda(head, body) => {
+            String::from(format!("(λ{}.{})", head, display_as_text(body)))
+        }
+        LambdaToken::App(a, b) => {
+            String::from(format!("{} {}", display_as_text(a), display_as_text(b)))
+        }
+        LambdaToken::Brackets(v) => String::from(format!("({})", display_as_text(v))),
     }
 }

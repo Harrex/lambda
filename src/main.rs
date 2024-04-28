@@ -14,7 +14,7 @@ fn main() {
         _ => {
             let parsed_string = lambda::parse_string(args[1].clone());
             let reduced_string = lambda::beta_reduce(parsed_string);
-            println!("{:?}", reduced_string);
+            println!("{}", lambda::display_as_text(reduced_string));
         }
     }
 }
@@ -38,6 +38,7 @@ fn repl() {
         previous_inputs.push(input.clone());
         let parsed_string = lambda::parse_string(input);
         let reduced_string = lambda::beta_reduce(parsed_string);
-        println!("{:?}", reduced_string);
+        println!("{}", lambda::display_as_text(reduced_string));
     }
 }
+
