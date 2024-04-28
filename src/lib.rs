@@ -66,17 +66,15 @@ impl<T> NodeCounter<T> {
             index: 0,
         }
     }
+
     fn next(&mut self) -> &T {
         let to_return = &self.node_list[self.index];
         self.index += 1;
         to_return
     }
+
     fn has_next(&mut self) -> bool {
         self.node_list.len() > self.index
-    }
-
-    fn current_value(&mut self) -> &T {
-        &self.node_list[self.index]
     }
 
     fn step_back(&mut self) {
@@ -89,14 +87,12 @@ fn parse_body_helper(
     is_lambda: bool,
 ) -> Vec<NotQuiteLambdaToken> {
     let mut to_be_half_finished_return: Vec<NotQuiteLambdaToken> = Vec::new();
-        let mut waiting_for_brackets: bool = false;
+    let mut waiting_for_brackets: bool = false;
 
     while node_counter.has_next() {
         let n = node_counter.next();
-        dbg!(&n);
         match n {
             LambdaNode::Lambda => {
-                println!("Parsing a lambda");
                 to_be_half_finished_return.push(NotQuiteLambdaToken::Lambda(
                     match node_counter.next() {
                         LambdaNode::Var(a) => *a,
@@ -118,7 +114,9 @@ fn parse_body_helper(
                 if is_lambda {
                     waiting_for_brackets = true;
                 } else {
-                    to_be_half_finished_return.push(NotQuiteLambdaToken::Brackets(parse_body_helper(node_counter, false)))
+                    to_be_half_finished_return.push(NotQuiteLambdaToken::Brackets(
+                        parse_body_helper(node_counter, false),
+                    ))
                 }
             }
 
@@ -141,19 +139,23 @@ fn parse_body_helper(
 
             LambdaNode::True => {
                 let mut node_counter = NodeCounter::new(lex(String::from("/p.(/q.(p))")));
-                to_be_half_finished_return.push(parse_body_helper(&mut node_counter, false)[0].clone());
+                to_be_half_finished_return
+                    .push(parse_body_helper(&mut node_counter, false)[0].clone());
             }
             LambdaNode::False => {
                 let mut node_counter = NodeCounter::new(lex(String::from("/p.(/q.(q))")));
-                to_be_half_finished_return.push(parse_body_helper(&mut node_counter, false)[0].clone());
+                to_be_half_finished_return
+                    .push(parse_body_helper(&mut node_counter, false)[0].clone());
             }
             LambdaNode::And => {
                 let mut node_counter = NodeCounter::new(lex(String::from("/p.(/q.(q p q))")));
-                to_be_half_finished_return.push(parse_body_helper(&mut node_counter, false)[0].clone());
+                to_be_half_finished_return
+                    .push(parse_body_helper(&mut node_counter, false)[0].clone());
             }
             LambdaNode::Or => {
                 let mut node_counter = NodeCounter::new(lex(String::from("/p.(/q.(p p q))")));
-                to_be_half_finished_return.push(parse_body_helper(&mut node_counter, false)[0].clone());
+                to_be_half_finished_return
+                    .push(parse_body_helper(&mut node_counter, false)[0].clone());
             }
         }
     }
@@ -210,16 +212,13 @@ fn parse_lexed(lexed_string_to_parse: Vec<LambdaNode>) -> Box<LambdaToken> {
     let all_the_way: Box<LambdaToken>;
     let mut node_counter = NodeCounter::new(lexed_string_to_parse);
     halfway = parse_body_helper(&mut node_counter, false);
-    dbg!(&halfway);
     all_the_way = finish_the_job(halfway);
     all_the_way
 }
 
 pub fn parse_string(string_to_parse: String) -> Box<LambdaToken> {
     let lexed_string = lex(string_to_parse);
-    dbg!(&lexed_string);
     let parsed_string = parse_lexed(lexed_string);
-    dbg!(&parsed_string);
     parsed_string
 }
 
@@ -228,7 +227,6 @@ pub fn parse_string(string_to_parse: String) -> Box<LambdaToken> {
 // Beta Reduction time!!!
 
 pub fn beta_reduce(calc: Box<LambdaToken>) -> Box<LambdaToken> {
-    dbg!(&calc);
     match *(calc.clone()) {
         LambdaToken::App(a, b) => match *(a.clone()) {
             LambdaToken::App(_, _) => {
