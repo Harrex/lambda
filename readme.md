@@ -23,7 +23,7 @@ There are a couple of common functions that I've included:
 | `T` | True  | `λp.λq.(p)`|
 | `F` | False | `λp.λq.(q)`|
 | `&` | And   | `λp.λq.(q p q)`|
-| `|` | Or    | `λp.λq.(p p q)`|
+| `\|` | Or    | `λp.λq.(p p q)`|
 
 ## Installation
 ### Linux (Binary)
