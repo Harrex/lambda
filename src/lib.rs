@@ -1,10 +1,12 @@
 use core::panic;
 
+///
 #[derive(Debug, Clone)]
 pub enum LambdaToken {
     Var(char),
     Lambda(char, Box<LambdaToken>),
     App(Box<LambdaToken>, Box<LambdaToken>),
+    Brackets(Box<LambdaToken>),
 }
 
 #[derive(Debug, Clone)]
@@ -12,6 +14,7 @@ pub enum NotQuiteLambdaToken {
     Var(char),
     Lambda(char, Vec<NotQuiteLambdaToken>),
     App,
+    Brackets(Vec<NotQuiteLambdaToken>),
 }
 
 #[derive(Debug)]
@@ -28,7 +31,7 @@ pub enum LambdaNode {
     Or,
 }
 
-pub fn lex(string_to_parse: String) -> Vec<LambdaNode> {
+fn lex(string_to_parse: String) -> Vec<LambdaNode> {
     let mut to_return = Vec::new();
 
     for character in string_to_parse.chars() {
@@ -50,6 +53,7 @@ pub fn lex(string_to_parse: String) -> Vec<LambdaNode> {
     to_return
 }
 
+#[derive(Debug)]
 struct NodeCounter<T> {
     node_list: Vec<T>,
     index: usize,
@@ -70,47 +74,64 @@ impl<T> NodeCounter<T> {
     fn has_next(&mut self) -> bool {
         self.node_list.len() > self.index
     }
+
+    fn current_value(&mut self) -> &T {
+        &self.node_list[self.index]
+    }
+
+    fn step_back(&mut self) {
+        self.index -= 1;
+    }
 }
 
-/// Helper: Parse to the next (, ), /, or other stopper (I can't think of any at the moment).
-/// This will return the same kind of AST as parse_lexed_to_ast() does, so they will be merged
-fn parse_body_helper(node_counter: &mut NodeCounter<LambdaNode>) -> Vec<NotQuiteLambdaToken> {
+fn parse_body_helper(
+    node_counter: &mut NodeCounter<LambdaNode>,
+    is_lambda: bool,
+) -> Vec<NotQuiteLambdaToken> {
     let mut to_be_half_finished_return: Vec<NotQuiteLambdaToken> = Vec::new();
-    let mut first_round: bool = true;
-    let mut waiting_for_bracket: bool = false;
+        let mut waiting_for_brackets: bool = false;
 
     while node_counter.has_next() {
         let n = node_counter.next();
+        dbg!(&n);
         match n {
-            LambdaNode::Lambda => to_be_half_finished_return.push(NotQuiteLambdaToken::Lambda(
-                match node_counter.next() {
-                    LambdaNode::Var(a) => *a,
-                    _ => panic!("Must have var after this"),
-                },
-                match node_counter.next() {
-                    LambdaNode::Dot => parse_body_helper(node_counter), //This is already a
-                    //mutable borrow
-                    _ => panic!("Lambda must have a dot: /x.()"),
-                },
-            )),
+            LambdaNode::Lambda => {
+                println!("Parsing a lambda");
+                to_be_half_finished_return.push(NotQuiteLambdaToken::Lambda(
+                    match node_counter.next() {
+                        LambdaNode::Var(a) => *a,
+                        _ => panic!("Must have var after this"),
+                    },
+                    match node_counter.next() {
+                        LambdaNode::Dot => parse_body_helper(node_counter, true), //This is already a
+                        //mutable borrow
+                        _ => panic!("Lambda must have a dot: /x.()"),
+                    },
+                ))
+            }
 
             LambdaNode::Dot => panic!("Too many dots!"),
 
             LambdaNode::Var(v) => to_be_half_finished_return.push(NotQuiteLambdaToken::Var(*v)),
 
             LambdaNode::LParen => {
-                if first_round {
-                    waiting_for_bracket = true
+                if is_lambda {
+                    waiting_for_brackets = true;
                 } else {
-                    panic!("Too many left brackets! Did you miss a space?");
+                    to_be_half_finished_return.push(NotQuiteLambdaToken::Brackets(parse_body_helper(node_counter, false)))
                 }
             }
 
             LambdaNode::RParen => {
-                if waiting_for_bracket {
-                    return to_be_half_finished_return;
+                if is_lambda {
+                    if waiting_for_brackets {
+                        return to_be_half_finished_return;
+                    } else {
+                        node_counter.step_back();
+                        return to_be_half_finished_return;
+                    }
                 } else {
-                    panic!("Too many right brackets!")
+                    return to_be_half_finished_return;
                 }
             }
 
@@ -120,22 +141,21 @@ fn parse_body_helper(node_counter: &mut NodeCounter<LambdaNode>) -> Vec<NotQuite
 
             LambdaNode::True => {
                 let mut node_counter = NodeCounter::new(lex(String::from("/p.(/q.(p))")));
-                to_be_half_finished_return.push(parse_body_helper(&mut node_counter)[0].clone());
+                to_be_half_finished_return.push(parse_body_helper(&mut node_counter, false)[0].clone());
             }
             LambdaNode::False => {
                 let mut node_counter = NodeCounter::new(lex(String::from("/p.(/q.(q))")));
-                to_be_half_finished_return.push(parse_body_helper(&mut node_counter)[0].clone());
-            },
-            LambdaNode::And   => {
+                to_be_half_finished_return.push(parse_body_helper(&mut node_counter, false)[0].clone());
+            }
+            LambdaNode::And => {
                 let mut node_counter = NodeCounter::new(lex(String::from("/p.(/q.(q p q))")));
-                to_be_half_finished_return.push(parse_body_helper(&mut node_counter)[0].clone());
-            },
-            LambdaNode::Or    => {
+                to_be_half_finished_return.push(parse_body_helper(&mut node_counter, false)[0].clone());
+            }
+            LambdaNode::Or => {
                 let mut node_counter = NodeCounter::new(lex(String::from("/p.(/q.(p p q))")));
-                to_be_half_finished_return.push(parse_body_helper(&mut node_counter)[0].clone());
-            },
-        }                        
-        first_round = false;
+                to_be_half_finished_return.push(parse_body_helper(&mut node_counter, false)[0].clone());
+            }
+        }
     }
 
     to_be_half_finished_return
@@ -147,6 +167,7 @@ fn not_quite_to_lambda_token(not_quite: NotQuiteLambdaToken) -> Box<LambdaToken>
         NotQuiteLambdaToken::Lambda(head, body) => {
             Box::new(LambdaToken::Lambda(head, finish_the_job(body)))
         }
+        NotQuiteLambdaToken::Brackets(v) => Box::new(LambdaToken::Brackets(finish_the_job(v))),
         NotQuiteLambdaToken::App => panic!("Shouldn't be here"),
     };
 }
@@ -175,6 +196,7 @@ fn finish_the_job(half_finished_ast: Vec<NotQuiteLambdaToken>) -> Box<LambdaToke
             Box::new(LambdaToken::Lambda(*head, finish_the_job(tail.clone())))
         }
         NotQuiteLambdaToken::App => resolve_application_nonsense(&mut node_counter),
+        NotQuiteLambdaToken::Brackets(v) => finish_the_job(v.clone()),
     };
     to_return
 }
@@ -183,13 +205,22 @@ fn finish_the_job(half_finished_ast: Vec<NotQuiteLambdaToken>) -> Box<LambdaToke
 /// [a-z] -> Var
 /// / -> Lambda
 /// (...) [a-z] -> App
-pub fn parse_lexed_to_ast(lexed_string_to_parse: Vec<LambdaNode>) -> Box<LambdaToken> {
+fn parse_lexed(lexed_string_to_parse: Vec<LambdaNode>) -> Box<LambdaToken> {
     let halfway: Vec<NotQuiteLambdaToken>;
     let all_the_way: Box<LambdaToken>;
     let mut node_counter = NodeCounter::new(lexed_string_to_parse);
-    halfway = parse_body_helper(&mut node_counter);
+    halfway = parse_body_helper(&mut node_counter, false);
+    dbg!(&halfway);
     all_the_way = finish_the_job(halfway);
     all_the_way
+}
+
+pub fn parse_string(string_to_parse: String) -> Box<LambdaToken> {
+    let lexed_string = lex(string_to_parse);
+    dbg!(&lexed_string);
+    let parsed_string = parse_lexed(lexed_string);
+    dbg!(&parsed_string);
+    parsed_string
 }
 
 // --------------------------
@@ -197,12 +228,19 @@ pub fn parse_lexed_to_ast(lexed_string_to_parse: Vec<LambdaNode>) -> Box<LambdaT
 // Beta Reduction time!!!
 
 pub fn beta_reduce(calc: Box<LambdaToken>) -> Box<LambdaToken> {
+    dbg!(&calc);
     match *(calc.clone()) {
         LambdaToken::App(a, b) => match *(a.clone()) {
-            LambdaToken::App(_, _) => beta_reduce(Box::new(LambdaToken::App(beta_reduce(a), b))),
+            LambdaToken::App(_, _) => {
+                beta_reduce(Box::new(LambdaToken::App(beta_reduce(a), beta_reduce(b))))
+            }
             LambdaToken::Lambda(head, body) => beta_reduce(substitute(body, head, &b)),
-            LambdaToken::Var(_) => calc,
+            LambdaToken::Var(_) => Box::new(LambdaToken::App(a, beta_reduce(b))),
+            LambdaToken::Brackets(v) => {
+                beta_reduce(Box::new(LambdaToken::App(beta_reduce(v), beta_reduce(b))))
+            }
         },
+        LambdaToken::Brackets(v) => beta_reduce(v),
         _ => calc,
     }
 }
@@ -232,5 +270,6 @@ fn substitute(
             substitute(a, from, to),
             substitute(b, from, to),
         )),
+        LambdaToken::Brackets(_) => todo!(),
     }
 }
