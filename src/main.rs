@@ -20,6 +20,11 @@ fn main() {
 }
 
 fn repl() {
+    println!(
+        "Welcome to the lambda calculus REPL: ^D to exit. 
+    - Use lowercase letters a~z for variables, and / or λ for λ.
+    - Some conveniences: &, |, T, F"
+    );
     let mut previous_inputs: Vec<String> = Vec::new();
     loop {
         let mut input = String::new();

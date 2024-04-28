@@ -36,7 +36,7 @@ fn lex(string_to_parse: String) -> Vec<LambdaNode> {
 
     for character in string_to_parse.chars() {
         match character {
-            '/' => to_return.push(LambdaNode::Lambda),
+            '/' | 'λ' => to_return.push(LambdaNode::Lambda),
             'a'..='z' => to_return.push(LambdaNode::Var(character)),
             '.' => to_return.push(LambdaNode::Dot),
             ' ' => to_return.push(LambdaNode::App),
@@ -209,11 +209,9 @@ fn finish_the_job(half_finished_ast: Vec<NotQuiteLambdaToken>) -> Box<LambdaToke
 /// (...) [a-z] -> App
 fn parse_lexed(lexed_string_to_parse: Vec<LambdaNode>) -> Box<LambdaToken> {
     let halfway: Vec<NotQuiteLambdaToken>;
-    let all_the_way: Box<LambdaToken>;
     let mut node_counter = NodeCounter::new(lexed_string_to_parse);
     halfway = parse_body_helper(&mut node_counter, false);
-    all_the_way = finish_the_job(halfway);
-    all_the_way
+    finish_the_job(halfway)
 }
 
 pub fn parse_string(string_to_parse: String) -> Box<LambdaToken> {
