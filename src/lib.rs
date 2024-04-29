@@ -36,7 +36,7 @@ fn lex(string_to_parse: String) -> Vec<LambdaNode> {
 
     for character in string_to_parse.chars() {
         match character {
-            '/' | 'λ' => to_return.push(LambdaNode::Lambda),
+            '/' | 'λ' | '\\' => to_return.push(LambdaNode::Lambda),
             'a'..='z' => to_return.push(LambdaNode::Var(character)),
             '.' => to_return.push(LambdaNode::Dot),
             ' ' => to_return.push(LambdaNode::App),
@@ -114,9 +114,10 @@ fn parse_body_helper(
                 if is_lambda {
                     waiting_for_brackets = true;
                 } else {
-                    to_return.push(NotQuiteLambdaToken::Brackets(
-                        parse_body_helper(node_counter, false),
-                    ))
+                    to_return.push(NotQuiteLambdaToken::Brackets(parse_body_helper(
+                        node_counter,
+                        false,
+                    )))
                 }
             }
 
@@ -139,23 +140,19 @@ fn parse_body_helper(
 
             LambdaNode::True => {
                 let mut node_counter = NodeCounter::new(lex(String::from("/p.(/q.(p))")));
-                to_return
-                    .push(parse_body_helper(&mut node_counter, false)[0].clone());
+                to_return.push(parse_body_helper(&mut node_counter, false)[0].clone());
             }
             LambdaNode::False => {
                 let mut node_counter = NodeCounter::new(lex(String::from("/p.(/q.(q))")));
-                to_return
-                    .push(parse_body_helper(&mut node_counter, false)[0].clone());
+                to_return.push(parse_body_helper(&mut node_counter, false)[0].clone());
             }
             LambdaNode::And => {
                 let mut node_counter = NodeCounter::new(lex(String::from("/p.(/q.(q p q))")));
-                to_return
-                    .push(parse_body_helper(&mut node_counter, false)[0].clone());
+                to_return.push(parse_body_helper(&mut node_counter, false)[0].clone());
             }
             LambdaNode::Or => {
                 let mut node_counter = NodeCounter::new(lex(String::from("/p.(/q.(p p q))")));
-                to_return
-                    .push(parse_body_helper(&mut node_counter, false)[0].clone());
+                to_return.push(parse_body_helper(&mut node_counter, false)[0].clone());
             }
         }
     }

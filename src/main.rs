@@ -21,7 +21,7 @@ fn main() {
 
 fn repl() {
     println!(
-        "Welcome to the lambda calculus REPL: ^D to exit. 
+        "Welcome to Harrex's lambda calculus REPL: ^D to exit. 
     - Use lowercase letters a~z for variables, and / or λ for λ.
     - Some conveniences: &, |, T, F"
     );
@@ -41,4 +41,3 @@ fn repl() {
         println!("{}", lambda::display_as_text(reduced_string));
     }
 }
-
